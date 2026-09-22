@@ -7,6 +7,7 @@
   <title>OSM Medicone | Central de Ordens de Serviço</title>
   <meta name="description" content="Gestão de ordens de manutenção e matrizaria">
   <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+  <script>if(!window.msal)document.write('<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"><\\/script>')</script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314628f'/%3E%3Cpath d='M18 20h28v24H18z' fill='none' stroke='%2394d4eb' stroke-width='5'/%3E%3Cpath d='M25 28h14M25 36h9' stroke='white' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='46' cy='18' r='6' fill='%23d23f71'/%3E%3C/svg%3E">
   <style>
     :root{--azul:#14628f;--rosa:#d23f71;--cinza:#636260;--azul-claro:#94d4eb;--navy:#062f46;--navy2:#0e4261;--ink:#444443;--muted:#636260;--line:rgba(20,98,143,.14);--bg:#fafafa;--card:#fff;--cyan:var(--azul);--cyan2:var(--azul);--red:var(--rosa);--amber:#f6c81e;--green:#15603b;--blue:#59528a;--shadow:0 1px 2px rgba(6,47,70,.05),0 18px 40px -20px rgba(6,47,70,.22);font-family:Verdana,Tahoma,"Segoe UI",sans-serif;color:var(--ink)}
@@ -366,7 +367,7 @@ const openDetailRev10=openDetail;
 openDetail=function(id){openDetailRev10(id);let field=document.querySelector('#detailBody [name="servicePerformed"]');if(!field)return;field.required=true;let label=field.closest('.formgroup')?.querySelector('label');if(label&&!label.textContent.includes('*'))label.textContent='Serviço realizado *';field.placeholder='Descreva o que foi executado, peças trocadas, ajustes e testes realizados.'};
 
 // Exibe uma mensagem útil se um visualizador de arquivos bloquear JavaScript.
-window.addEventListener('error',function(){let e=document.getElementById('loginError');if(e&&!currentUser)e.textContent='Não foi possível iniciar neste visualizador. Abra o endereço do aplicativo diretamente no Safari ou Chrome.'});
+window.addEventListener('error',function(event){let e=document.getElementById('loginError');if(!e||currentUser)return;let isViewer=location.protocol==='file:'||/sharepoint\.com$/i.test(location.hostname);if(isViewer)e.textContent='Não foi possível iniciar neste visualizador. Abra o endereço oficial do aplicativo diretamente no Safari ou Chrome.';else if(event?.message)e.textContent='Falha ao iniciar: '+String(event.message).slice(0,240)});
 
 // Crédito discreto, persistente na capa e depois do login.
 function ensureDeveloperCredit(){let sync=document.querySelector('.syncbox');if(sync&&!sync.querySelector('.developer-credit'))sync.insertAdjacentHTML('beforeend','<div class="role-note">Versão definitiva · REV 14</div><div class="developer-credit">Desenvolvido por Maurício Lutz</div>');let login=document.getElementById('loginScreen');if(login&&!login.querySelector('.login-developer-credit'))login.insertAdjacentHTML('beforeend','<div class="login-developer-credit">Desenvolvido por Maurício Lutz · OSM Medicone · REV 14</div>')}
@@ -387,7 +388,7 @@ const CORPORATE_AUTH={
 // separadamente quando a sincronização é ativada, evitando bloqueio de consentimento.
 const corporateScopes=['User.Read'];
 const sharePointScopes=['User.Read','Sites.ReadWrite.All'];
-const msalApp=new msal.PublicClientApplication({auth:{clientId:CORPORATE_AUTH.clientId,authority:'https://login.microsoftonline.com/'+CORPORATE_AUTH.tenantId,redirectUri:location.origin+location.pathname},cache:{cacheLocation:'sessionStorage',storeAuthStateInCookie:false}});
+const msalApp=window.msal?new window.msal.PublicClientApplication({auth:{clientId:CORPORATE_AUTH.clientId,authority:'https://login.microsoftonline.com/'+CORPORATE_AUTH.tenantId,redirectUri:location.origin+location.pathname},cache:{cacheLocation:'sessionStorage',storeAuthStateInCookie:false}}):null;
 let graphToken='',sharePointSiteId='';
 
 async function getGraphToken(account){
@@ -442,6 +443,7 @@ async function corporateLogin(){
   let button=document.getElementById('accessButton'),error=document.getElementById('loginError');
   button.disabled=true;button.textContent='Conectando à Microsoft…';error.textContent='';
   try{
+    if(!msalApp)throw Object.assign(new Error('A biblioteca de autenticação Microsoft não carregou. Verifique se a rede corporativa bloqueia alcdn.msauth.net e cdn.jsdelivr.net.'),{errorCode:'msal_library_unavailable'});
     let result=await msalApp.loginPopup({scopes:corporateScopes,prompt:'select_account'});
     await establishCorporateSession(result.account);
   }catch(err){
@@ -462,6 +464,7 @@ logout=async function(){
 };
 (async function restoreCorporateSession(){
   try{
+    if(!msalApp){showLogin();return}
     let redirect=await msalApp.handleRedirectPromise(),account=redirect?.account||msalApp.getAllAccounts()[0];
     if(account){msalApp.setActiveAccount(account);await establishCorporateSession(account)}else showLogin();
   }catch(error){console.error(error);showLogin()}
