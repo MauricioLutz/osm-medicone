@@ -389,7 +389,7 @@ const CORPORATE_AUTH={
 const corporateScopes=['User.Read'];
 const sharePointScopes=['User.Read','Sites.ReadWrite.All'];
 const msalApp=window.msal?new window.msal.PublicClientApplication({auth:{clientId:CORPORATE_AUTH.clientId,authority:'https://login.microsoftonline.com/'+CORPORATE_AUTH.tenantId,redirectUri:location.origin+location.pathname},cache:{cacheLocation:'sessionStorage',storeAuthStateInCookie:false}}):null;
-let graphToken='',sharePointSiteId='';
+let graphToken='',sharePointSiteId='',profileLoadDiagnostic='';
 
 async function getGraphToken(account,allowPopup=true){
   try{return (await msalApp.acquireTokenSilent({account,scopes:sharePointScopes})).accessToken}
@@ -414,22 +414,27 @@ async function loadSharePointProfile(email){
   try{
     let site=await graphGet('/sites/'+CORPORATE_AUTH.sharePointHost+':'+CORPORATE_AUTH.sitePath);
     sharePointSiteId=site.id;
-    let lists=await graphGet('/sites/'+encodeURIComponent(site.id)+'/lists?$select=id,displayName');
-    let list=(lists.value||[]).find(x=>String(x.displayName).toLowerCase()===CORPORATE_AUTH.usersList.toLowerCase());
+    let list=null;
+    try{list=await graphGet('/sites/'+site.id+'/lists/'+encodeURIComponent(CORPORATE_AUTH.usersList)+'?$select=id,displayName')}
+    catch(directError){
+      let lists=await graphGet('/sites/'+site.id+'/lists?$select=id,displayName');
+      list=(lists.value||[]).find(x=>String(x.displayName).toLowerCase()===CORPORATE_AUTH.usersList.toLowerCase())
+    }
     if(!list)return null;
-    let data=await graphGet('/sites/'+encodeURIComponent(site.id)+'/lists/'+encodeURIComponent(list.id)+'/items?$expand=fields&$top=999');
+    let data=await graphGet('/sites/'+site.id+'/lists/'+list.id+'/items?$expand=fields&$top=999');
     let key=String(email||'').trim().toLowerCase();
     let item=(data.value||[]).find(x=>{
       let f=x.fields||{},mail=String(f.Email||f.EMail||f.Title||'').trim().toLowerCase();
       return mail===key;
     });
-    if(!item)return null;
+    if(!item){profileLoadDiagnostic='Cadastro não localizado em UsuariosOSM para '+key;return null}
     let f=item.fields||{};
     if(f.Ativo===false||String(f.Ativo||'').toLowerCase()==='não')throw new Error('Seu acesso ao OSM está desativado.');
     return {registration:String(f.Matricula||f.Matr_x00ed_cula||email),role:normalizeProfile(f.Perfil),sector:String(f.Setor||'')};
   }catch(error){
     if(/desativado/.test(error.message))throw error;
-    console.warn('Lista UsuariosOSM ainda não disponível; aplicado perfil padrão de usuário.',error);
+    profileLoadDiagnostic=String(error?.message||error).slice(0,420);
+    console.warn('Não foi possível carregar o perfil no SharePoint; aplicado perfil padrão de usuário.',error);
     return null;
   }
 }
@@ -441,6 +446,10 @@ async function establishCorporateSession(account){
   currentUser={registration:profile?.registration||email,name:me.displayName||email,email,entraId:me.id,role:profile?.role||'user',sector:profile?.sector||''};
   sessionStorage.setItem('osmCurrentUser',JSON.stringify(currentUser));
   enterApp();
+  if(!profile&&profileLoadDiagnostic){
+    let sync=document.querySelector('.syncbox');
+    if(sync&&!document.getElementById('profileDiagnostic'))sync.insertAdjacentHTML('beforeend','<div id="profileDiagnostic" style="margin-top:10px;padding:9px;border:1px solid rgba(255,180,201,.45);border-radius:8px;color:#ffcad8;font-size:.68rem;word-break:break-word"><b>Diagnóstico do perfil:</b><br>'+esc(profileLoadDiagnostic)+'</div>');
+  }
 }
 async function corporateLogin(){
   let button=document.getElementById('accessButton'),error=document.getElementById('loginError');
