@@ -387,7 +387,7 @@ const CORPORATE_AUTH={
 // A primeira entrada pede somente o perfil. O acesso ao SharePoint é solicitado
 // separadamente quando a sincronização é ativada, evitando bloqueio de consentimento.
 const corporateScopes=['User.Read'];
-const sharePointScopes=['User.Read','Sites.ReadWrite.All'];
+const sharePointScopes=['User.Read','Sites.Selected'];
 const msalApp=window.msal?new window.msal.PublicClientApplication({auth:{clientId:CORPORATE_AUTH.clientId,authority:'https://login.microsoftonline.com/'+CORPORATE_AUTH.tenantId,redirectUri:location.origin+location.pathname},cache:{cacheLocation:'sessionStorage',storeAuthStateInCookie:false}}):null;
 let graphToken='',sharePointSiteId='',profileLoadDiagnostic='';
 
