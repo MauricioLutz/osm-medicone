@@ -383,7 +383,10 @@ const CORPORATE_AUTH={
   sitePath:'/sites/ControledeManuteno',
   usersList:'UsuariosOSM'
 };
-const corporateScopes=['User.Read','Sites.ReadWrite.All'];
+// A primeira entrada pede somente o perfil. O acesso ao SharePoint é solicitado
+// separadamente quando a sincronização é ativada, evitando bloqueio de consentimento.
+const corporateScopes=['User.Read'];
+const sharePointScopes=['User.Read','Sites.ReadWrite.All'];
 const msalApp=new msal.PublicClientApplication({auth:{clientId:CORPORATE_AUTH.clientId,authority:'https://login.microsoftonline.com/'+CORPORATE_AUTH.tenantId,redirectUri:location.origin+location.pathname},cache:{cacheLocation:'sessionStorage',storeAuthStateInCookie:false}});
 let graphToken='',sharePointSiteId='';
 
@@ -442,7 +445,10 @@ async function corporateLogin(){
     let result=await msalApp.loginPopup({scopes:corporateScopes,prompt:'select_account'});
     await establishCorporateSession(result.account);
   }catch(err){
-    console.error(err);error.textContent='Não foi possível entrar. Confirme sua conta corporativa e tente novamente.';
+    console.error(err);let code=err?.errorCode||err?.code||'',detail=err?.errorMessage||err?.message||'';
+    if(code==='user_cancelled'||/cancel/i.test(detail))error.textContent='O acesso foi cancelado. Clique novamente para entrar.';
+    else if(code==='popup_window_error'||/popup/i.test(detail))error.textContent='O navegador bloqueou a janela de login. Libere os pop-ups deste endereço e tente novamente.';
+    else error.textContent='Não foi possível entrar'+(code?' ('+code+')':'')+'. Tente novamente ou informe este código ao administrador.';
   }finally{button.disabled=false;button.textContent='Entrar com a conta corporativa'}
 }
 logout=async function(){
