@@ -391,9 +391,12 @@ const sharePointScopes=['User.Read','Sites.ReadWrite.All'];
 const msalApp=window.msal?new window.msal.PublicClientApplication({auth:{clientId:CORPORATE_AUTH.clientId,authority:'https://login.microsoftonline.com/'+CORPORATE_AUTH.tenantId,redirectUri:location.origin+location.pathname},cache:{cacheLocation:'sessionStorage',storeAuthStateInCookie:false}}):null;
 let graphToken='',sharePointSiteId='';
 
-async function getGraphToken(account){
-  try{return (await msalApp.acquireTokenSilent({account,scopes:corporateScopes})).accessToken}
-  catch(error){return (await msalApp.acquireTokenPopup({account,scopes:corporateScopes})).accessToken}
+async function getGraphToken(account,allowPopup=true){
+  try{return (await msalApp.acquireTokenSilent({account,scopes:sharePointScopes})).accessToken}
+  catch(error){
+    if(!allowPopup)throw error;
+    return (await msalApp.acquireTokenPopup({account,scopes:sharePointScopes})).accessToken
+  }
 }
 async function graphGet(path){
   let response=await fetch('https://graph.microsoft.com/v1.0'+path,{headers:{Authorization:'Bearer '+graphToken}});
@@ -444,7 +447,7 @@ async function corporateLogin(){
   button.disabled=true;button.textContent='Conectando à Microsoft…';error.textContent='';
   try{
     if(!msalApp)throw Object.assign(new Error('A biblioteca de autenticação Microsoft não carregou. Verifique se a rede corporativa bloqueia alcdn.msauth.net e cdn.jsdelivr.net.'),{errorCode:'msal_library_unavailable'});
-    let result=await msalApp.loginPopup({scopes:corporateScopes,prompt:'select_account'});
+    let result=await msalApp.loginPopup({scopes:sharePointScopes,prompt:'select_account'});
     await establishCorporateSession(result.account);
   }catch(err){
     console.error(err);let code=err?.errorCode||err?.code||'',detail=err?.errorMessage||err?.message||'';
