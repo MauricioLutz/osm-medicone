@@ -369,7 +369,7 @@ openDetail=function(id){openDetailRev10(id);let field=document.querySelector('#d
 window.addEventListener('error',function(){let e=document.getElementById('loginError');if(e&&!currentUser)e.textContent='Não foi possível iniciar neste visualizador. Abra o endereço do aplicativo diretamente no Safari ou Chrome.'});
 
 // Crédito discreto, persistente na capa e depois do login.
-function ensureDeveloperCredit(){let sync=document.querySelector('.syncbox');if(sync&&!sync.querySelector('.developer-credit'))sync.insertAdjacentHTML('beforeend','<div class="role-note">Versão definitiva · REV 13</div><div class="developer-credit">OSM Medicone</div>');let login=document.getElementById('loginScreen');if(login&&!login.querySelector('.login-developer-credit'))login.insertAdjacentHTML('beforeend','<div class="login-developer-credit">OSM MEDICONE · REV 13</div>')}
+function ensureDeveloperCredit(){let sync=document.querySelector('.syncbox');if(sync&&!sync.querySelector('.developer-credit'))sync.insertAdjacentHTML('beforeend','<div class="role-note">Versão definitiva · REV 14</div><div class="developer-credit">Desenvolvido por Maurício Lutz</div>');let login=document.getElementById('loginScreen');if(login&&!login.querySelector('.login-developer-credit'))login.insertAdjacentHTML('beforeend','<div class="login-developer-credit">Desenvolvido por Maurício Lutz · OSM Medicone · REV 14</div>')}
 const enterAppRev10=enterApp;
 enterApp=function(){enterAppRev10();ensureDeveloperCredit()};
 ensureDeveloperCredit();
@@ -448,7 +448,10 @@ async function corporateLogin(){
     console.error(err);let code=err?.errorCode||err?.code||'',detail=err?.errorMessage||err?.message||'';
     if(code==='user_cancelled'||/cancel/i.test(detail))error.textContent='O acesso foi cancelado. Clique novamente para entrar.';
     else if(code==='popup_window_error'||/popup/i.test(detail))error.textContent='O navegador bloqueou a janela de login. Libere os pop-ups deste endereço e tente novamente.';
-    else error.textContent='Não foi possível entrar'+(code?' ('+code+')':'')+'. Tente novamente ou informe este código ao administrador.';
+    else {
+      let diagnostic=[code,detail].filter(Boolean).join(' — ').slice(0,320);
+      error.textContent='Não foi possível entrar'+(diagnostic?' ('+diagnostic+')':'')+'. Envie uma captura desta mensagem para o administrador.';
+    }
   }finally{button.disabled=false;button.textContent='Entrar com a conta corporativa'}
 }
 logout=async function(){
